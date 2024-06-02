@@ -7,9 +7,9 @@ Button buttonUp(5);
 Button buttonDown(3);
 Button buttonOk(2);
 
-bool isSetHours = 0;
+bool isSetHours = 1;
 bool isSetMinutes = 0;
-bool isSetSeconds = 1;
+bool isSetSeconds = 0;
 
 int hours = 0;
 int minutes = 0;
