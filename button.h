@@ -6,12 +6,12 @@ class Button {
     }
     bool isClicked() {
       bool btnState = digitalRead(_pin);
-      if (!btnState && !_flag && millis() - _timer >= 20) {
+      if (!btnState && !_flag && millis() - _timer >= 10) {
         _flag = true;
         _timer = millis();
         return true;
       }
-      if (!btnState && _flag && millis() - _timer >= 50) {
+      if (!btnState && _flag && millis() - _timer >= 30) {
         _timer = millis();
         return true;
       }
