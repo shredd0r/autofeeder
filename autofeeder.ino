@@ -3,7 +3,6 @@
 extern uint8_t SmallFont[]; 
 
 OLED oled(A3, A4);
-DS1307 rtc(A1, A2);
 Settings settings;
 Menu menu(&oled, &settings);
 
@@ -42,7 +41,7 @@ void menuSetupTime() {
 }
 
 void menuSetupMealTime() {
-  menu.setupMealTimes()
+  menu.setupMealTimes();
 }
 
 void menuSetupTimerOpenGrap() {

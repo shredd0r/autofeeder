@@ -1,25 +1,7 @@
 #include <DS1307.h>
 #include <EEPROM.h>
+#include "times.h"
 
-const uint8_t countMealTime = 5;
-
-struct Times {
-  uint8_t hours;
-  uint8_t minutes;
-  uint8_t seconds;
-
-  Times() {
-    hours = -1;
-    minutes = -1;
-    seconds = -1;
-  }
-
-  Times(uint8_t hours, uint8_t minutes, uint8_t seconds) {
-    this->hours = hours;
-    this->minutes = minutes;
-    this->seconds = seconds;
-  }
-};
 
 class Settings {
   public:
@@ -27,8 +9,8 @@ class Settings {
       return this->_isTimeSet;
     }
     void setupTime(uint8_t hours, uint8_t minutes, uint8_t seconds) {
-      //add call DS1307.setTime();
-      int index = this->_getIndex(_indexOfIsTimeSetInMemory);
+      _rtc->setTime(hours, minutes, seconds);
+      uint8_t index = this->_getIndex(_indexOfIsTimeSetInMemory);
       
       this->_isTimeSet = true;
       EEPROM.put(index, this->_isTimeSet);
@@ -71,9 +53,9 @@ class Settings {
       return this->_timerOpenFlap;
     }
 
-    Settings(/*DS1307 *rtc*/) {
+    Settings(DS1307 *rtc) {
       _mealTimes = new Times[countMealTime];
-      // this->_rtc = rtc;
+      this->_rtc = rtc;
     }
 
   private:
@@ -84,9 +66,9 @@ class Settings {
     bool _isTimeSet = false;
     uint8_t _timerOpenFlap = 0;
     Times* _mealTimes;
-    // DS1307 *_rtc;
+    DS1307 *_rtc;
 
-    int _getIndex(uint8_t indexOfParam) {
+    uint8_t _getIndex(uint8_t indexOfParam) {
       switch(indexOfParam) {
         case 0:
           return 0;
