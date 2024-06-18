@@ -1,43 +1,88 @@
 #include <OLED_I2C.h>
 #include "button.h"
 #include "settings.h"
+#include "feeder.h"
 
 class Menu {
   public:
     void setupTime() {
-      _oled->clrScr();
+      if (!_settings->isTimeSetup()) {
+        _oled->clrScr();
 
-      if (!isTempTime) {
-        _oled->print("Greeting", CENTER, 5);
-        _oled->print("set current time", CENTER, 20);
-        _oled->print("press 'OK' for save", CENTER, 35);
-        _printWaitingCursorForTime();
-        _changePartTimeSetup();
-        _setupPartTime();
-      }
-      else {
-        _oled->print("Is time correct?", CENTER, 10);
-        _oled->print(_getStrTime(), CENTER, 25);
-        _printWaitingCursorForYesNo();
-        _changePartYesNoSetup();
-        _setupTime();
-      }
-      if (buttonOk.isClicked()) {
-        isTempTime = true;
+        if (!isTempTime) {
+          _oled->print("Greeting", CENTER, 5);
+          _oled->print("set current time", CENTER, 20);
+          _oled->print("press 'OK' for save", CENTER, 35);
+          _printWaitingCursorForTime();
+          _changePartTimeSetup();
+          _setupPartTime();
+        }
+        else {
+          _oled->print("Is time correct?", CENTER, 10);
+          _oled->print(_getStrTime(), CENTER, 25);
+          _printWaitingCursorForYesNo();
+          _changePartYesNoSetup();
+          _setupTime();
+        }
+        if (buttonOk.isClicked()) {
+          isTempTime = true;
+        }
       }
     }
+
     void setupMealTimes() {
-      _oled->clrScr();
+      if (!_settings->isMealTimesSetup() && _settings->isTimeSetup()) {
+        _oled->clrScr();
+        if (!isTempTime && currentMealTimeSetup <= 5) {
+          _oled->print("Set meal time, max 5", CENTER, 5);
+          _oled->print("current time: " + String(currentMealTimeSetup), CENTER, 20);
+          _oled->print("press 'OK' for save", CENTER, 35);
+          _printWaitingCursorForTime();
+          _changePartTimeSetup();
+          _setupPartTime();
+        }
+        else {
+          _oled->print("Is time correct?", CENTER, 10);
+          _oled->print(_getStrTime(), CENTER, 25);
+          _printWaitingCursorForYesNo();
+          _changePartYesNoSetup();
+          _addMealTime();
+          _setupMealTimes();
+        }
+        if (buttonOk.isClicked()) {
+          isTempTime = true;
+        }
+      }
     }
-    void editMealTimes();
 
-    Menu(OLED *oled, Settings *settings) {
+    void setupTimerOpenFlap() {
+      if (!_settings->isTimerOpenFlapSetup() && _settings->isMealTimesSetup()) {
+        _oled->print("set time open flap", CENTER, 15);
+        _oled->print("press 'OK' for save", CENTER, 35);
+        _printWaitingCursorForTimerTest();
+        _changePartTimerOrTest();
+        _setupPartTime(&isTimer, &timerOpenFlap, 1000);
+        _setupTimerOpenFlap();
+      }
+    }
+
+    void clearEEPROM() {
+      _settings->clearEEPROM();
+    }
+
+    void currentTime(uint8_t hours, uint8_t minutes, uint8_t seconds) {
+      _oled->print(_getStrWithTime(hours) + " : " + _getStrWithTime(minutes) + " : " + _getStrWithTime(seconds), CENTER, 30);
+    }
+
+    Menu(OLED *oled, Settings *settings, Feeder *feeder) {
       this->_oled = oled;
       this->_settings = settings;
+      this->_feeder = feeder;
     }
   private:
     OLED* _oled;
     Settings* _settings;
+    Feeder* _feeder;
 
     Button buttonRight = Button(6);
     Button buttonLeft = Button(4);
@@ -52,20 +97,59 @@ class Menu {
     bool isTempTime = 0;
     bool isYes = 1;
     bool isNo = 1;
+    bool isTimer = 1;
+    bool isTest = 0;
 
+    uint8_t currentMealTimeSetup = 1;
+    int timerOpenFlap = 0;
     uint8_t hours = 0;
     uint8_t minutes = 0;
     uint8_t seconds = 0;
+    Times mealTimes[5];
 
     void _setupTime() {
       if (isYes && buttonOk.isClicked()) {
         _settings->setupTime(hours, minutes, seconds);
+        _oled->clrScr();
+        isTempTime = false;
       }
-
       if (isNo && buttonOk.isClicked()) {
         isTempTime = false;
       }
     }  
+
+    void _addMealTime() {
+      if (isYes && buttonOk.isClicked()) {
+        Times newMealTime(hours, minutes, seconds);
+        mealTimes[currentMealTimeSetup - 1] = newMealTime;
+        
+        currentMealTimeSetup++; 
+        isTempTime = false;
+      }
+      if (isNo && buttonOk.isClicked()) {
+        isTempTime = false;
+      }
+      
+    }
+
+    void _setupMealTimes() {
+      if (currentMealTimeSetup > 5) {
+        _settings->setupMealTime(mealTimes);
+        currentMealTimeSetup = 1;
+        _oled->clrScr();
+      }
+    }
+
+    void _setupTimerOpenFlap() {
+      if (isTimer && buttonOk.isClicked()) {
+        _settings->setupTimerOpenFlap(timerOpenFlap);
+        _oled->clrScr();
+      }
+      if (isTest) {
+        isTest = !_feeder->openFlap(timerOpenFlap);
+        isTimer = !isTest;
+      }
+    }
 
     bool _isPassedMillis(int mills) {
       return round(millis() / mills) % 2 == 0;
@@ -79,11 +163,17 @@ class Menu {
       _printWaitingCursor(_getStrYesNoWithCursor(_getPositionYesNo()), _getStrYesNo());
     }
 
+    void _printWaitingCursorForTimerTest() {
+      _printWaitingCursor(_getStrForTimerOpenFlapWithCursor(_getPositionTimerTest()), _getStrForTimerOpenFlap());
+    }
+
     void _printWaitingCursor(String strWithCursor, String strWithoutCursor) {
-      if (_isPassedMillis(100)) 
-          _oled->print(strWithCursor, CENTER, 50);
-        else
-          _oled->print(strWithoutCursor, CENTER, 50);
+      if (_isPassedMillis(100)) {
+        _oled->print(strWithCursor, CENTER, 50);
+      }
+      else {
+        _oled->print(strWithoutCursor, CENTER, 50);
+      }
     }
 
     String _getStrForTimeWithCursor(uint8_t position) {
@@ -99,6 +189,11 @@ class Menu {
       return " " + _getStrWithTime(hours) + " : " + _getStrWithTime(minutes) + " : " + _getStrWithTime(seconds) + " ";
     }
 
+    String _getStrForTimerOpenFlapWithCursor(uint8_t position) {
+      return _getOpenCharForCursor(position, 0) + String(timerOpenFlap) + _getCloseCharForCursor(position, 0) + "ms   "
+       + _getOpenCharForCursor(position, 1) + "test" + _getCloseCharForCursor(position, 1);
+    }
+
     String _getStrYesNoWithCursor(uint8_t position) {
       return _getOpenCharForCursor(position, 0) + String("Yes") + _getCloseCharForCursor(position, 0) + "/" 
       + _getOpenCharForCursor(position, 1) + String("No") + _getCloseCharForCursor(position, 1);
@@ -106,6 +201,10 @@ class Menu {
 
     String _getStrYesNo() {
       return " Yes / No ";
+    }
+
+    String _getStrForTimerOpenFlap() {
+      return " " + String(timerOpenFlap) + " ms    test ";
     }
 
     char _getOpenCharForCursor(uint8_t position, uint8_t expectedPosition) {
@@ -126,6 +225,12 @@ class Menu {
 
     uint8_t _getPositionYesNo() {
       if (isYes)
+        return 0;
+      return 1;
+    }
+
+    uint8_t _getPositionTimerTest() {
+      if (isTimer)
         return 0;
       return 1;
     }
@@ -161,6 +266,23 @@ class Menu {
       }
     }
 
+    void _setupPartTime(bool *flag, int *countTime, int max) {
+      if (*flag) {
+        if (buttonUp.isClicked()) {
+          if (*countTime < max)
+            *countTime = *countTime + 5;
+          else
+            *countTime = 0;
+        }
+        if (buttonDown.isClicked()) {
+          if (*countTime > 0)
+            *countTime = *countTime - 5;
+          else
+            *countTime = max;
+        }
+      }
+    }
+
     void _changePartTimeSetup() {
       if (isSetHours)
         _changeLeftRightMenuPart(&isSetHours, &isSetSeconds, &isSetMinutes);
@@ -177,14 +299,21 @@ class Menu {
         _changeLeftRightMenuPart(&isNo, &isYes, &isYes);
     }
 
-    void _changeLeftRightMenuPart(bool *currentPartTime, bool *leftPartTime, bool *rightPartTime) {
+    void _changePartTimerOrTest() {
+      if (isTimer)
+        _changeLeftRightMenuPart(&isTimer, &isTest, &isTest);
+      if (isTest)
+        _changeLeftRightMenuPart(&isTest, &isTimer, &isTimer);
+    }
+
+    void _changeLeftRightMenuPart(bool *currentPart, bool *leftPart, bool *rightPart) {
       if (buttonRight.isClicked()) {
-        *currentPartTime = false;
-        *rightPartTime = true;
+        *currentPart = false;
+        *rightPart = true;
       }
       if (buttonLeft.isClicked()) {
-        *currentPartTime = false;
-        *leftPartTime = true;
+        *currentPart = false;
+        *leftPart = true;
       }
     }
 };

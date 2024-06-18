@@ -1,4 +1,9 @@
-const uint8_t countMealTime = 5;
+#ifndef TIMES_H
+#define TIMES_H
+
+static const uint8_t countMealTimes = 5;
+
+
 
 struct Times {
   uint8_t hours;
@@ -22,8 +27,11 @@ struct Times {
   }
 
   bool isTimeEqual(uint8_t hours, uint8_t minutes, uint8_t seconds) {
-    return this->hours == hours &&
-    this->minutes == minutes &&
-    this->seconds == seconds;
+    return this->hours == hours && this->minutes == minutes && this->seconds == seconds;
   }
 };
+
+struct MealTimes {
+  Times meals[5];
+};
+#endif // TIMES_H

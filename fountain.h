@@ -13,18 +13,20 @@ class Fountain {
     }
 
     void workflow() {
-      _oled->clrScr();
       if (_isEnoughWater()) {
         if (_isInfraredMotionSensorWorked()) {
-          digitalWrite(_pinInfraredMotionSensor, HIGH);
+          digitalWrite(_pinMosfet, HIGH);
 
         } 
         else {
-          digitalWrite(_pinInfraredMotionSensor, LOW);
-          _oled->print("Water level low!!!", CENTER, 10);
-          _oled->print("Add water", CENTER, 10);
-          _oled->update();
+          digitalWrite(_pinMosfet, LOW);
         }
+      } 
+      else {
+        _oled->clrScr();
+        _oled->print("Water level low!!!", CENTER, 10);
+        _oled->print("Add water", CENTER, 10);
+        _oled->update();
       }
       _oled->update();
     }
@@ -45,4 +47,4 @@ class Fountain {
 
       return value == HIGH;
     }
-}
+};

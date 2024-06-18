@@ -1,15 +1,27 @@
+#include <Servo.h>
 #include "menu.h"
+#include "fountain.h"
 
 extern uint8_t SmallFont[]; 
 
-OLED oled(A3, A4);
-Settings settings;
-Menu menu(&oled, &settings);
+uint8_t pinServo = 7;
+
+Servo servo;
+DS1307 rtc(A4, A5);
+OLED oled(A2, A3);
+Feeder feeder(&rtc, &servo);
+Fountain fountain(1, 2, 3, &oled);
+Settings settings(&rtc);
+Menu menu(&oled, &settings, &feeder);
 
 void setup()
 {
+  // settings.clearEEPROM();
   Serial.begin(9600);
+  Serial.println("start setup");  
   setupOled();
+  setupServo();
+  setupMealTimes();
 }
 
 void setupOled() {
@@ -17,37 +29,42 @@ void setupOled() {
   oled.setFont(SmallFont);
   oled.clrScr();
   oled.update();
+  Serial.println("oled setup successful");
+}
+
+void setupServo() {
+  servo.attach(pinServo);
+  servo.write(closeDegree);
+  Serial.println("servo setup successful");
 }
 
 void loop()
 {
-  menuSetupTime();
-  menuSetupMealTime();
-  menuSetupTimerOpenGrap();
-  
-  workflow();
+  if (settings.isSetup()) {
+    workflow();
+  } 
+  else {
+    menu.setupTime();
+    menu.setupMealTimes();
+    menu.setupTimerOpenFlap();
+    setupMealTimes();
+  }
 
   oled.update();
 }
 
-
-void menuSetupTime() {
-  if (!settings.isTimeSetup()) {
-    menu.setupTime();
-  }
-  else {
-    oled.clrScr();
-  }
-}
-
-void menuSetupMealTime() {
-  menu.setupMealTimes();
-}
-
-void menuSetupTimerOpenGrap() {
-
-}
-
 void workflow() {
+  currentTime();
+  feeder.workflow();
+  fountain.workflow();
+} 
 
+void currentTime() {
+  Time now = rtc.getTime();
+  menu.currentTime(now.hour, now.min, now.sec);
+}
+
+void setupMealTimes() {
+  feeder.updateMealTimes(settings.getMealTimes());
+  feeder.updateTimerOpenFlap(500);
 }
